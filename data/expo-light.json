@@ -1,0 +1,44 @@
+{
+ "note": "Simulated reservoir, MNIST digits. Light = input gain x1..x2 as in the lab Guide. Not a measurement of the physical sample.",
+ "measured": "2026-10-18",
+ "trainCount": 30000,
+ "testCount": 10000,
+ "levels": [
+  {
+   "light": 0,
+   "gain": 1,
+   "darkTrained": 0.9366,
+   "retrained": 0.9366
+  },
+  {
+   "light": 20,
+   "gain": 1.2,
+   "darkTrained": 0.9325,
+   "retrained": 0.9351
+  },
+  {
+   "light": 40,
+   "gain": 1.4,
+   "darkTrained": 0.904,
+   "retrained": 0.934
+  },
+  {
+   "light": 60,
+   "gain": 1.6,
+   "darkTrained": 0.829,
+   "retrained": 0.9323
+  },
+  {
+   "light": 80,
+   "gain": 1.8,
+   "darkTrained": 0.7163,
+   "retrained": 0.9338
+  },
+  {
+   "light": 100,
+   "gain": 2,
+   "darkTrained": 0.5965,
+   "retrained": 0.9349
+  }
+ ]
+}

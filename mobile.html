@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050606">
+  <title>Může hmota počítat?</title>
+  <link rel="icon" href="img/qr-lab.svg">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <header id="top">
+    <a id="mark" href="#hero">WS₂</a>
+    <nav id="chips">
+      <a href="#sim" data-copy="mobNavSim"></a>
+      <a href="#sound" data-copy="mobNavSound"></a>
+      <a href="#answers" data-copy="mobNavAnswers"></a>
+      <a href="#future" data-copy="mobNavFuture"></a>
+      <a href="#about" data-copy="mobNavAbout"></a>
+    </nav>
+    <div id="lang"><button type="button" data-lang="cs">CS</button><button type="button" data-lang="en">EN</button></div>
+  </header>
+
+  <main>
+    <section id="hero">
+      <p class="kicker" data-copy="mobKicker"></p>
+      <h1 data-copy="title"></h1>
+      <p class="lead" data-copy="mobLead"></p>
+      <a class="go" href="#sim" data-copy="invite"></a>
+    </section>
+
+    <section id="sim">
+      <h2 data-copy="mobSimTitle"></h2>
+      <p class="sub" data-copy="drawPrompt"></p>
+      <div id="padwrap">
+        <canvas id="cv-draw"></canvas>
+        <canvas id="cv-prev" width="64" height="64"></canvas>
+      </div>
+      <div class="row">
+        <button type="button" id="btn-clear" class="ghost" data-copy="clear"></button>
+        <button type="button" id="btn-send" class="solid" data-copy="send"></button>
+      </div>
+      <p id="sim-msg" class="msg" aria-live="polite"></p>
+      <div id="run" hidden>
+        <p id="run-label" class="mono"></p>
+        <canvas id="cv-run"></canvas>
+        <div id="result" hidden>
+          <p id="res-lead" class="lead2"></p>
+          <p id="res-digit"></p>
+          <div id="bars"></div>
+          <p class="cap" data-copy="barsCaption"></p>
+          <button type="button" id="btn-model" class="ghost"></button>
+          <h3 data-copy="reflectHead"></h3>
+          <p class="body" data-copy="reflectBody"></p>
+          <p class="body dim" data-copy="reflectSim"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="sound">
+      <h2 data-copy="measTitle"></h2>
+      <p class="sub" data-copy="measSource"></p>
+      <div id="clips"></div>
+      <p id="clip-msg" class="msg"></p>
+      <div class="stats">
+        <div><b>200</b><span data-copy="measF1"></span></div>
+        <div><b data-copy="measF2n"></b><span data-copy="measF2"></span></div>
+        <div><b data-copy="measF3n"></b><span data-copy="measF3"></span></div>
+      </div>
+      <p class="cap" data-copy="measNote"></p>
+    </section>
+
+    <section id="answers">
+      <h2 data-copy="ansTitle"></h2>
+      <p class="sub" id="ans-sub"></p>
+      <div class="chips">
+        <button type="button" id="a-set"></button>
+        <button type="button" id="a-pal"></button>
+        <button type="button" id="a-mag"></button>
+        <button type="button" id="a-play"></button>
+      </div>
+      <canvas id="cv-ans"></canvas>
+      <label class="slider"><input type="range" id="a-range" min="0" max="199" value="100" aria-label="impuls"><span id="a-read"></span></label>
+      <p class="cap" data-copy="mobScrub"></p>
+      <p class="body dim" id="a-ref"></p>
+      <button type="button" id="a-story-btn" class="ghost" data-copy="ansStoryBtn"></button>
+      <div id="a-story" hidden>
+        <h3 data-copy="ansStoryTitle"></h3>
+        <p class="body" data-copy="ansStory1"></p>
+        <p class="body" data-copy="ansStory2"></p>
+        <p class="body" data-copy="ansStory3"></p>
+      </div>
+      <p class="cap" id="a-note"></p>
+    </section>
+
+    <section id="future">
+      <h2 data-copy="mobFutTitle"></h2>
+      <p class="sub" data-copy="mobFutLead"></p>
+      <div id="cards"></div>
+    </section>
+
+    <section id="about">
+      <h2 data-copy="aboutTitle"></h2>
+      <p class="body" data-copy="aboutSim"></p>
+      <p class="body" data-copy="aboutSample"></p>
+      <p class="body" data-copy="aboutChoice"></p>
+      <p class="body" data-copy="aboutHow"></p>
+      <figure><img src="img/lab-bench.jpg" alt="" loading="lazy"><figcaption data-copy="photoBench"></figcaption></figure>
+      <div id="qrbox">
+        <a href="https://git.tami.sh/yair/ws2" target="_blank" rel="noopener"><img src="img/qr-lab.svg" alt="git.tami.sh/yair/ws2"></a>
+        <p class="cap" data-copy="labLink"></p>
+      </div>
+      <p class="cap" data-copy="colophon"></p>
+      <p class="cap" id="credits"></p>
+      <p class="cap"><a id="desktop" href="expo.html?desktop=1" data-copy="mobDesktop"></a></p>
+    </section>
+  </main>
+  <script type="module" src="js/mobile.js"></script>
+</body>
+</html>

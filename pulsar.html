@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>200 odpovědí</title>
+  <style>
+    @font-face { font-family: 'Instrument Serif'; font-weight: 400; font-style: normal; src: url('fonts/instrument-serif-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2212; }
+    @font-face { font-family: 'Instrument Serif'; font-weight: 400; font-style: normal; src: url('fonts/instrument-serif-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F; }
+    @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2212; }
+    @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url('fonts/ibm-plex-mono-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F; }
+    :root { --bg: #070808; --ink: #efe8d6; --dim: #8d8a7e; --phos: #86ffa8; --line: #2b322d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; font: 14px/1.35 'IBM Plex Mono', Consolas, monospace; }
+    /* one column that always fits the window: header, toolbar, the picture (takes what is left), a line of reading */
+    #app { height: 100dvh; display: flex; flex-direction: column; padding: 1.6vh 3vw 1.4vh; gap: 1.2vh; }
+    #top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex: none; }
+    #top h1 { margin: 0; font: 400 clamp(26px, 8vh, 72px)/.95 'Instrument Serif', Georgia, serif; letter-spacing: .01em; }
+    #top p { margin: 4px 0 0; font-size: clamp(10px, 1.7vh, 13px); letter-spacing: .08em; color: var(--dim); text-transform: uppercase; }
+    #sys { display: flex; gap: 6px; flex: none; }
+    #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; flex: none; }
+    button { font: inherit; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); background: none; border: 1px solid var(--line); padding: 7px 11px; cursor: pointer; white-space: nowrap; }
+    button.on { color: #070808; background: var(--phos); border-color: var(--phos); }
+    label { font-size: 11px; letter-spacing: .08em; color: var(--dim); text-transform: uppercase; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    input[type=range] { accent-color: var(--phos); width: clamp(70px, 10vw, 150px); }
+    #plot { position: relative; flex: 1 1 0; min-height: 120px; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+    #foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 22px; }
+    #read { color: var(--phos); font-size: 14px; }
+    #hint { color: var(--dim); font-size: 11px; letter-spacing: .06em; text-align: right; }
+    #note { position: absolute; left: 3vw; right: 3vw; bottom: 6vh; max-height: 70vh; overflow: auto; padding: 18px 22px; background: rgba(7, 8, 8, .96); border: 1px solid var(--line); color: var(--ink); font-size: 13px; line-height: 1.55; display: none; z-index: 5; }
+    #note.open { display: block; }
+    #note p { margin: 0 0 10px; max-width: 80ch; }
+    #note p:last-child { margin: 0; color: var(--dim); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div><h1 id="title"></h1><p id="sub"></p></div>
+    <div id="sys">
+      <button type="button" id="b-sound"></button>
+      <button type="button" id="b-info">i</button>
+      <button type="button" data-lang="cs">CS</button><button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+  <div id="bar">
+    <button type="button" data-sig="fall" id="b-fall"></button>
+    <button type="button" data-sig="rise" id="b-rise"></button>
+    <label><span id="l-mag"></span><input id="mag" type="range" min="4" max="140" value="60"><b id="mag-v">60×</b></label>
+    <label><span id="l-lines"></span><input id="lines" type="range" min="40" max="200" step="10" value="80"><b id="lines-v">80</b></label>
+    <button type="button" id="b-env"></button>
+    <button type="button" id="b-col"></button>
+    <button type="button" id="b-pal"></button>
+    <button type="button" id="b-by"></button>
+    <button type="button" id="b-tint"></button>
+    <button type="button" id="b-play"></button>
+  </div>
+  <div id="plot"><canvas id="cv"></canvas></div>
+  <div id="foot"><div id="read"></div><div id="hint"></div></div>
+</div>
+<div id="note"></div>
+<script>
+const T = {
+  cs: {
+    title: '200 odpovědí',
+    sub: 'Stejný impuls, dvěstěkrát. Vzorek pokaždé odpověděl trochu jinak. Stoh jako na obalu Unknown Pleasures (pulsar CP 1919).',
+    rise: 'Začátek impulzu', fall: 'Konec impulzu', mag: 'zvětšení rozdílů', lines: 'počet čar',
+    env: 'zaoblit okraje', col: 'barvy', pal: 'paleta', by: ['barva = čas v dávce', 'barva = velikost odchylky'], tint: 'barevná výplň', play: '▶ přehrát dávku', stop: '■ zastavit',
+    snd: ['♪ zvuk: ano', '♪ zvuk: ne'],
+    note: [
+      'Každá čára je skutečný impuls ze záznamu z 19. 10. 2026 (osciloskop, vlastní aparatura ESP32). Vynesena je odchylka rychlosti změny napětí kolem hrany impulzu od průměru (mV za µs), zvětšená.',
+      'Okraje jsou výtvarně zklidněné (tlačítko „zaoblit okraje“): bez té úpravy je šum po celé šířce stejný. Barva čáry ukazuje, kdy v dávce impuls přišel (nebo jak velká byla jeho odchylka). Odchylka je součet vzorku a přístroje.',
+      'Uspořádání čar připomíná graf pulsaru CP 1919 (H. Craft, 1970), známý z obalu alba Unknown Pleasures. Zvuk je výtvarné mapování: výška tónu sleduje odchylku vybrané čáry.',
+    ],
+    hover: (i, mv) => `impuls ${i + 1} z 200 · největší odchylka ${mv.toFixed(1).replace('.', ',')} mV/µs`,
+    idle: 'Přejeďte přes čáry. Stiskněte a táhněte: každá čára má svůj hlas.',
+    hint: 'hrana impulzu uprostřed · čas v µs',
+    playing: (i) => `dávka: impuls ${i + 1} z 200`,
+  },
+  en: {
+    title: '200 answers',
+    sub: 'The same pulse, two hundred times. The sample answered a little differently each time. A stack like the cover of Unknown Pleasures (pulsar CP 1919).',
+    rise: 'Start of the pulse', fall: 'End of the pulse', mag: 'magnify differences', lines: 'lines',
+    env: 'calm the edges', col: 'colours', pal: 'palette', by: ['colour = time in the burst', 'colour = size of the deviation'], tint: 'tinted fill', play: '▶ play the burst', stop: '■ stop',
+    snd: ['♪ sound: on', '♪ sound: off'],
+    note: [
+      'Each line is a real pulse from the recording of 19 Oct 2026 (oscilloscope, our own ESP32 rig). What is drawn is each pulse’s deviation from the average in how fast the voltage changes around the pulse’s edge (mV per µs), magnified.',
+      'The edges are calmed as an artistic choice (the “calm the edges” button): without it the noise is equal across the whole width. The colour of a line shows when in the burst the pulse came (or how large its deviation was). The deviation is the sample and the instrument together.',
+      'The stacking recalls the plot of pulsar CP 1919 (H. Craft, 1970), known from the cover of Unknown Pleasures. The sound is an artistic mapping: pitch follows the deviation of the chosen line.',
+    ],
+    hover: (i, mv) => `pulse ${i + 1} of 200 · largest deviation ${mv.toFixed(1)} mV/µs`,
+    idle: 'Run across the lines. Press and drag: every line has its own voice.',
+    hint: 'the pulse edge in the middle · time in µs',
+    playing: (i) => `burst: pulse ${i + 1} of 200`,
+  },
+};
+let lang = 'cs', sig = 'fall', K = 60, nLines = 80, envelope = true, colored = true, soundOn = true;
+let palette = 0, colorBy = 'time', tinted = true;
+let data = null, dev = null, tms = null;
+let hot = -1, pointerDown = false;
+let spread = 0, center = 0, target = null;     // the lines part around the finger
+let introAt = performance.now();
+let playFrom = 0, playing = false, lastPlayed = -1;
+let lastLine = -1;
+let ctxA = null, voice = null;
+const cv = document.getElementById('cv');
+const $ = (s) => document.querySelector(s);
+
+// ---- sound: every action answers with a sound ------------------------------------------------------------
+function actx() { if (!ctxA) ctxA = new (window.AudioContext || window.webkitAudioContext)(); ctxA.resume(); return ctxA; }
+function blip(f = 660, dur = 0.07, vol = 0.07, type = 'sine') {
+  if (!soundOn) return;
+  const a = actx(), t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.03);
+}
+const NOTE = (semi) => 261.63 * Math.pow(2, semi / 12);
+function voiceFor(pi) {
+  // an artistic mapping: the deviation of the chosen pulse becomes the pitch of a short tone
+  if (!soundOn) return;
+  const a = actx(), now = a.currentTime;
+  if (voice) { voice.g.gain.cancelScheduledValues(now); voice.g.gain.setTargetAtTime(0, now, 0.03); voice.o.stop(now + 0.2); }
+  const o = a.createOscillator(), g = a.createGain(), d = dev[pi];
+  const curve = new Float32Array(d.length);
+  for (let j = 0; j < d.length; j++) curve[j] = 220 * Math.pow(2, Math.max(-12, Math.min(12, d[j] * 0.9)) / 12) * (1 + 0.04 * pi / 199);
+  o.type = 'sine';
+  o.frequency.setValueCurveAtTime(curve, now, 0.55);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.14, now + 0.04);
+  g.gain.setTargetAtTime(0, now + 0.45, 0.06);
+  o.connect(g).connect(a.destination);
+  o.start(now); o.stop(now + 0.7);
+  voice = { o, g };
+}
+
+// ---- text ----------------------------------------------------------------------------------------------
+function text() {
+  const t = T[lang];
+  document.documentElement.lang = lang;
+  $('#title').textContent = t.title; $('#sub').textContent = t.sub;
+  $('#note').innerHTML = t.note.map((p) => `<p>${p}</p>`).join('');
+  $('#b-rise').textContent = t.rise; $('#b-fall').textContent = t.fall; $('#l-mag').textContent = t.mag; $('#l-lines').textContent = t.lines;
+  $('#b-env').textContent = t.env; $('#b-env').classList.toggle('on', envelope);
+  $('#b-col').textContent = t.col; $('#b-col').classList.toggle('on', colored);
+  $('#b-pal').textContent = `${t.pal}: ${PALETTES[palette].name[lang]}`;
+  $('#b-by').textContent = t.by[colorBy === 'time' ? 0 : 1];
+  $('#b-tint').textContent = t.tint; $('#b-tint').classList.toggle('on', tinted);
+  $('#b-play').textContent = playing ? t.stop : t.play; $('#b-play').classList.toggle('on', playing);
+  $('#b-sound').textContent = t.snd[soundOn ? 0 : 1]; $('#b-sound').classList.toggle('on', soundOn);
+  $('#hint').textContent = t.hint;
+  document.querySelectorAll('[data-sig]').forEach((b) => b.classList.toggle('on', b.dataset.sig === sig));
+  document.querySelectorAll('[data-lang]').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
+  readout();
+}
+function readout() {
+  const t = T[lang];
+  $('#read').textContent = playing ? t.playing(Math.max(0, hot)) : hot >= 0 && dev ? t.hover(hot, Math.max(...dev[hot].map(Math.abs))) : t.idle;
+}
+
+function prepare() {
+  const P = data[sig].map((r) => r.map((v) => (sig === 'fall' ? -v : v)));   // the falling edge flipped so that its peak points up
+  const n = P.length, m = P[0].length;
+  const mean = Array.from({ length: m }, (_, j) => P.reduce((a, r) => a + r[j], 0) / n);
+  dev = P.map((r) => {
+    const d = r.map((v, j) => v - mean[j]);
+    return d.map((_, j) => (d[Math.max(0, j - 1)] + d[j] + d[Math.min(m - 1, j + 1)]) / 3);
+  });
+  tms = P[0].map((_, j) => data.windowUs[0] + data.dtUs * (j + 1));
+  const sz = dev.map((r) => Math.sqrt(r.reduce((a, v) => a + v * v, 0) / r.length));
+  const lo = Math.min(...sz), hi = Math.max(...sz);
+  devSize = sz.map((v) => (v - lo) / (hi - lo || 1));
+}
+
+// the colour of a line: where it stands in a palette (violet to pink is the first one)
+const PALETTES = [
+  { name: { cs: 'spektrum', en: 'spectrum' }, stops: [[141, 107, 255], [76, 195, 255], [134, 255, 168], [239, 232, 214], [255, 176, 92], [255, 111, 165]] },
+  { name: { cs: 'oheň', en: 'fire' }, stops: [[70, 20, 130], [190, 30, 110], [255, 80, 40], [255, 170, 40], [255, 240, 170]] },
+  { name: { cs: 'oceán', en: 'ocean' }, stops: [[40, 70, 200], [0, 140, 220], [0, 210, 205], [140, 255, 200], [240, 255, 235]] },
+  { name: { cs: 'neon', en: 'neon' }, stops: [[255, 0, 170], [160, 60, 255], [0, 200, 255], [0, 255, 160], [220, 255, 0]] },
+  { name: { cs: 'aurora', en: 'aurora' }, stops: [[60, 255, 160], [40, 200, 255], [140, 100, 255], [255, 100, 200]] },
+];
+function rgbAt(f) {
+  const S = PALETTES[palette].stops;
+  const x = Math.max(0, Math.min(0.9999, f)) * (S.length - 1);
+  const i = Math.floor(x), t = x - i;
+  return S[i].map((v, k) => Math.round(v + (S[i + 1][k] - v) * t));
+}
+function lineColor(f, a = 1) { const c = rgbAt(f); return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`; }
+function tintColor(f) { const c = rgbAt(f).map((v) => Math.round(7 + v * 0.14)); return `rgb(${c[0]}, ${c[1] + 1}, ${c[2] + 1})`; }
+let devSize = null;      // how large each pulse's deviation is, 0..1 across the pulses
+function colorPos(pi) { return colorBy === 'time' ? pi / (dev.length - 1) : devSize[pi]; }
+
+function geometry() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  return { w, h, left: w * 0.05, right: w * 0.95, top: h * 0.14, bottom: h * 0.88 };
+}
+
+function draw(now) {
+  if (!dev) return;
+  const ratio = window.devicePixelRatio || 1;
+  const { w, h, left, right, top, bottom } = geometry();
+  if (cv.width !== Math.round(w * ratio) || cv.height !== Math.round(h * ratio)) { cv.width = Math.round(w * ratio); cv.height = Math.round(h * ratio); }
+  const c = cv.getContext('2d');
+  c.setTransform(ratio, 0, 0, ratio, 0, 0);
+  c.fillStyle = '#070808';
+  c.fillRect(0, 0, w, h);
+  const n = dev.length, m = dev[0].length;
+  const dy = (bottom - top) / (nLines - 1);
+  const amp = (h / 620) * 0.11 * K;
+  const t0 = -80, t1 = 80;
+  const xs = tms.map((t) => left + ((t - t0) / (t1 - t0)) * (right - left));
+  const win = tms.map((t) => Math.exp(-0.5 * Math.pow(t / 20, 2)));
+  const idxs = Array.from({ length: nLines }, (_, k) => Math.round((k * (n - 1)) / (nLines - 1)));
+  const intro = Math.min(1, (now - introAt) / 2600);                  // the lines settle in one after another
+  c.save();
+  c.beginPath(); c.rect(left, 0, right - left, h); c.clip();
+  c.lineJoin = 'round';
+  const partPx = Math.min(26, dy * 5) * spread;                       // the lines part around the finger
+  idxs.forEach((pi, k) => {
+    const f = Math.max(0, Math.min(1, (intro - (k / nLines) * 0.75) / 0.25));
+    if (f <= 0) return;
+    const dist = k - center;
+    const part = k === Math.round(center) ? 0 : Math.sign(dist) * partPx * Math.exp(-Math.pow(dist / 3.2, 2));
+    const base = top + k * dy + part - (1 - f) * 40;
+    const y = (j) => base - dev[pi][j] * amp * (envelope ? win[j] : 1) * f;
+    c.beginPath();
+    c.moveTo(xs[0], y(0));
+    for (let j = 1; j < m; j++) c.lineTo(xs[j], y(j));
+    c.save();
+    c.lineTo(xs[m - 1], base + dy * 1.5);
+    c.lineTo(xs[0], base + dy * 1.5);
+    c.closePath();
+    c.fillStyle = colored && tinted ? tintColor(colorPos(pi)) : '#070808';
+    c.fill();
+    c.restore();
+    c.beginPath();
+    c.moveTo(xs[0], y(0));
+    for (let j = 1; j < m; j++) c.lineTo(xs[j], y(j));
+    const on = pi === hot;
+    const glow = colored && nLines <= 120;
+    c.strokeStyle = on ? '#ffffff' : colored ? lineColor(colorPos(pi), 0.55 + 0.45 * f) : `rgba(239, 232, 214, ${0.94 * f})`;
+    c.lineWidth = on ? 2.8 : 1.4;
+    c.shadowColor = on ? (colored ? lineColor(colorPos(pi)) : '#ffffff') : glow ? lineColor(colorPos(pi), 0.9) : 'transparent';
+    c.shadowBlur = on ? 18 : glow ? 7 : 0;
+    c.stroke();
+    c.shadowBlur = 0;
+  });
+  c.restore();
+  c.font = "11px 'IBM Plex Mono', monospace";
+  c.fillStyle = '#8d8a7e';
+  c.textAlign = 'center';
+  for (const t of [-60, -30, 0, 30, 60]) c.fillText(`${t > 0 ? '+' : t < 0 ? '−' : ''}${Math.abs(t)} µs`, left + ((t - t0) / (t1 - t0)) * (right - left), Math.min(h - 6, bottom + 22));
+
+  // the chosen pulse alone, in a small window: its real deviation from the average
+  if (hot >= 0) {
+    const bw = Math.min(340, w * 0.3), bh = Math.min(110, h * 0.18), bx = w - bw - 8, by = 6;
+    c.fillStyle = 'rgba(7, 8, 8, 0.92)';
+    c.fillRect(bx, by, bw, bh);
+    c.strokeStyle = '#2b322d'; c.lineWidth = 1; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    const col = colored ? lineColor(colorPos(hot)) : '#efe8d6';
+    const dmax = Math.max(8, ...dev[hot].map(Math.abs));
+    c.beginPath();
+    for (let j = 0; j < m; j++) {
+      const x = bx + 10 + (j / (m - 1)) * (bw - 20);
+      const y = by + bh / 2 + 6 - (dev[hot][j] / dmax) * (bh / 2 - 20);
+      if (j === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    c.strokeStyle = col; c.lineWidth = 1.6; c.stroke();
+    c.fillStyle = '#8d8a7e'; c.textAlign = 'left'; c.font = "11px 'IBM Plex Mono', monospace";
+    c.fillText(`#${hot + 1}  ±${dmax.toFixed(0)} mV/µs`, bx + 10, by + 14);
+  }
+}
+
+// ---- the finger -------------------------------------------------------------------------------------
+function lineAt(clientY) {
+  const r = cv.getBoundingClientRect();
+  const { top, bottom } = geometry();
+  return Math.max(0, Math.min(nLines - 1, ((clientY - r.top - top) / (bottom - top)) * (nLines - 1)));
+}
+const pulseOf = (k) => Math.round((Math.round(k) * 199) / (nLines - 1));
+
+function move(e) {
+  if (playing) return;
+  const k = lineAt(e.clientY);
+  target = k;
+  const pi = pulseOf(k);
+  if (Math.round(k) !== lastLine) {
+    lastLine = Math.round(k);
+    if (!pointerDown) blip(1300 + 6 * lastLine, 0.012, 0.018, 'triangle');       // a comb: a soft tick for every line
+  }
+  if (pi !== hot) {
+    hot = pi;
+    readout();
+    if (pointerDown) voiceFor(pi);
+  }
+}
+cv.addEventListener('pointermove', move);
+cv.addEventListener('pointerdown', (e) => { pointerDown = true; cv.setPointerCapture(e.pointerId); move(e); if (!playing) voiceFor(pulseOf(lineAt(e.clientY))); });
+cv.addEventListener('pointerup', () => { pointerDown = false; });
+cv.addEventListener('pointerleave', () => { if (!pointerDown && !playing) { target = null; hot = -1; lastLine = -1; readout(); } });
+
+// ---- the burst plays pulse by pulse, slowed so that it can be followed --------------------------------
+function togglePlay() {
+  playing = !playing;
+  playFrom = performance.now();
+  lastPlayed = -1;
+  if (!playing) { target = null; hot = -1; }
+  text();
+}
+function tick(now) {
+  if (playing) {
+    const i = Math.floor((now - playFrom) / 90);       // one pulse every 90 ms
+    if (i >= 200) { playing = false; target = null; hot = -1; text(); }
+    else {
+      hot = i;
+      target = (i * (nLines - 1)) / 199;
+      if (i !== lastPlayed) { lastPlayed = i; blip(NOTE(-12 + (i % 12)), 0.05, 0.05, 'triangle'); if (i % 4 === 0) voiceFor(i); readout(); }
+    }
+  }
+  spread += ((target === null ? 0 : 1) - spread) * 0.14;
+  if (target !== null) center += (target - center) * 0.28;
+  draw(now);
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener('resize', () => draw(performance.now()));
+document.querySelectorAll('[data-sig]').forEach((b) => b.addEventListener('click', () => { sig = b.dataset.sig; prepare(); introAt = performance.now(); blip(sig === 'fall' ? NOTE(0) : NOTE(7), 0.18, 0.09); text(); }));
+document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; blip(lang === 'cs' ? NOTE(4) : NOTE(9), 0.1); text(); }));
+$('#lines').addEventListener('input', (e) => { nLines = Number(e.target.value); $('#lines-v').textContent = String(nLines); hot = -1; target = null; blip(NOTE((nLines - 40) / 160 * 24), 0.05, 0.06, 'triangle'); });
+$('#mag').addEventListener('input', (e) => { K = Number(e.target.value); $('#mag-v').textContent = `${K}×`; blip(NOTE(K / 140 * 24 - 5), 0.05, 0.06, 'triangle'); });
+$('#b-env').addEventListener('click', () => { envelope = !envelope; blip(envelope ? NOTE(12) : NOTE(-5), 0.12, 0.09); text(); });
+$('#b-col').addEventListener('click', () => { colored = !colored; blip(colored ? NOTE(14) : NOTE(-3), 0.12, 0.09); text(); });
+$('#b-pal').addEventListener('click', () => { palette = (palette + 1) % PALETTES.length; blip(NOTE(palette * 3), 0.16, 0.09); text(); });
+$('#b-by').addEventListener('click', () => { colorBy = colorBy === 'time' ? 'size' : 'time'; blip(colorBy === 'time' ? NOTE(2) : NOTE(9), 0.12, 0.08); text(); });
+$('#b-tint').addEventListener('click', () => { tinted = !tinted; blip(tinted ? NOTE(11) : NOTE(-4), 0.12, 0.08); text(); });
+$('#b-play').addEventListener('click', () => { blip(NOTE(7), 0.08, 0.09); togglePlay(); });
+$('#b-sound').addEventListener('click', () => { soundOn = !soundOn; if (soundOn) blip(NOTE(12), 0.12, 0.09); text(); });
+$('#b-info').addEventListener('click', () => { $('#note').classList.toggle('open'); $('#b-info').classList.toggle('on'); blip(NOTE(9), 0.08, 0.07); });
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#note, #b-info')) { $('#note').classList.remove('open'); $('#b-info').classList.remove('on'); } });
+
+fetch('data/ws2-edges.json').then((r) => r.json()).then((d) => {
+  data = d; prepare(); text();
+  document.fonts.ready.then(() => { introAt = performance.now(); requestAnimationFrame(tick); });
+});
+</script>
+</body>
+</html>

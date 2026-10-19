@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <script>/* phones get the scrolling version; ?desktop=1 and ?kiosk keep this one */if(!/[?&](desktop|kiosk)/.test(location.search)&&(matchMedia("(pointer: coarse)").matches&&Math.min(screen.width,screen.height)<=600))location.replace("mobile.html"+location.hash);</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Může hmota počítat?</title>
+  <link rel="stylesheet" href="expo.css">
+</head>
+<body>
+  <!--
+    Exhibition mode. One continuous screen, a fixed 1920x1080 stage scaled to the window.
+    No Web Serial, no hardware, no network: everything on this page is a simulation.
+    The laboratory application stays at index.html.
+  -->
+  <div id="stage" class="phase-idle apparatus-right">
+    <header id="bar">
+      <div id="mark" data-copy="title"></div>
+      <nav id="nav">
+        <button type="button" data-go="result" data-copy="navResult"></button>
+        <button type="button" data-go="light" data-copy="navLight"></button>
+        <button type="button" data-go="decide" data-copy="navDecide"></button>
+      </nav>
+      <div id="bar-right">
+        <div id="tabs">
+          <button type="button" id="tab-sim" data-go="sim" data-copy="badge"></button>
+          <button type="button" id="tab-sound" data-go="sound" data-copy="navMeasured"></button>
+          <button type="button" id="tab-answers" data-go="answers" data-copy="navAnswers"></button>
+          <button type="button" id="tab-future" data-go="future" data-copy="navFuture"></button>
+          <button type="button" id="btn-about" aria-label="?">?</button>
+        </div>
+        <span id="lang" role="group" aria-label="Language">
+          <button type="button" data-lang="cs">CS</button>
+          <button type="button" data-lang="en">EN</button>
+        </span>
+      </div>
+    </header>
+
+    <main id="panels">
+      <!-- the human side: title, drawing, pulses, interpretation -->
+      <section id="input">
+        <div id="hero">
+          <h1 data-copy="title"></h1>
+          <p id="invite" data-copy="invite"></p>
+          <div id="idle-sample">
+            <canvas id="cv-idle8" width="168" height="168"></canvas>
+            <p data-copy="idleSample"></p>
+          </div>
+          <p id="idle-beside" data-copy="idleBeside"></p>
+          <img id="idle-qr" src="img/qr-lab.svg" alt="git.tami.sh/yair/ws2">
+          <p id="idle-qr-cap" data-copy="labQr"></p>
+          <p id="colophon"><span id="credits"></span> <span data-copy="colophon"></span> <span data-copy="labLink"></span></p>
+        </div>
+
+        <div id="drawbox">
+          <canvas id="cv-draw"></canvas>
+          <div id="preview">
+            <canvas id="cv-preview" width="112" height="112"></canvas>
+            <span data-copy="previewLabel"></span>
+          </div>
+          <p id="draw-prompt" data-copy="drawPrompt"></p>
+          <p id="draw-warn" data-copy="tooSmall"></p>
+        </div>
+        <div id="actions">
+          <button type="button" id="btn-clear" class="ghost" data-copy="clear"></button>
+          <button type="button" id="btn-send" class="solid" data-copy="send"></button>
+        </div>
+
+        <canvas id="cv-pulse"></canvas>
+        <div id="narration"></div>
+        <button type="button" id="btn-next" class="solid"></button>
+
+        <div id="future">
+          <button type="button" id="btn-voice" class="ghost"></button>
+          <button type="button" id="btn-voice-all" class="ghost"></button>
+          <h2 id="fu-title"></h2>
+          <div id="fu-flow">
+            <p id="fu-know"></p>
+            <p id="fu-body"></p>
+          </div>
+          <div id="fu-dots"></div>
+          <div id="fu-actions">
+            <button type="button" id="btn-fu-back" class="ghost" data-copy="deepBack"></button>
+            <button type="button" id="btn-fu-next" class="solid" data-copy="futNext"></button>
+          </div>
+        </div>
+
+        <div id="result">
+          <p id="result-lead"></p>
+          <div id="digit"></div>
+          <p id="result-hint"></p>
+          <canvas id="cv-bars"></canvas>
+          <p id="bars-caption" data-copy="barsCaption"></p>
+          <div id="doors">
+            <button type="button" class="door" data-go="light"><b data-copy="navLight"></b><span data-copy="doorLight"></span></button>
+            <button type="button" class="door" data-go="decide"><b data-copy="navDecide"></b><span data-copy="doorDecide"></span></button>
+            <button type="button" class="door" data-go="future"><b data-copy="navFuture"></b><span data-copy="doorFuture"></span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- the signal side, placed next to the physical oscilloscope -->
+      <section id="signal">
+        <canvas id="cv-scope"></canvas>
+        <canvas id="cv-material"></canvas>
+        <p id="mat-caption" data-copy="matCaption"></p>
+        <div id="reflect">
+          <h2 data-copy="reflectHead"></h2>
+          <p data-copy="reflectBody"></p>
+          <p data-copy="reflectSim"></p>
+          <p id="reflect-beside" data-copy="reflectBeside"></p>
+          <button type="button" id="btn-again" class="solid" data-copy="again"></button>
+        </div>
+      </section>
+    </main>
+
+    <!-- advanced layer, reached from the result screen: the light experiment (live) and what "deciding" means -->
+    <section id="deep" data-view="light">
+      <div id="view-light" class="view">
+        <div id="deep-left">
+          <h2 data-copy="deepTitle"></h2>
+          <div id="deep-verdict">
+            <div id="dv-digit"></div>
+            <div id="dv-text"><p id="dv-lead"></p><p id="dv-dark"></p><p id="dv-src"></p></div>
+          </div>
+          <p id="deep-caption"></p>
+          <div id="dimmer">
+            <span id="dimmer-label"></span>
+            <div id="dimmer-track"></div>
+            <div id="dimmer-notches"></div>
+            <div id="dimmer-thumb"></div>
+          </div>
+          <div id="deep-toggle">
+            <button type="button" id="rd-old" class="ghost"></button>
+            <button type="button" id="rd-new" class="ghost"></button>
+          </div>
+          <p id="deep-note" data-copy="deepNote"></p>
+          <p id="deep-method"></p>
+        </div>
+        <div id="deep-right">
+          <canvas id="cv-deep-scope"></canvas>
+          <canvas id="cv-light"></canvas>
+          <div id="deep-numbers">
+            <div><b id="num-dark"></b><canvas id="cv-ticks-dark"></canvas><span id="num-dark-label"></span></div>
+            <div class="good"><b id="num-now"></b><canvas id="cv-ticks-now"></canvas><span id="num-now-label"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-decide" class="view">
+        <div id="dc-text">
+          <h2 data-copy="decTitle"></h2>
+          <ol id="dc-steps"></ol>
+          <p id="dc-try"></p>
+        </div>
+        <div id="dc-chart">
+          <p id="dc-who"></p>
+          <canvas id="cv-scores"></canvas>
+          <p id="dc-moments-cap"></p>
+          <canvas id="cv-moments"></canvas>
+          <div id="dc-ctl">
+            <button type="button" id="dc-play" class="ghost"></button>
+            <button type="button" id="dc-all" class="ghost"></button>
+          </div>
+          <canvas id="cv-slots"></canvas>
+          <p id="dc-readout"></p>
+        </div>
+      </div>
+
+      <p id="deep-lab" data-copy="deepLab"></p>
+      <button type="button" id="btn-deep-back" class="ghost" data-copy="deepBack"></button>
+    </section>
+
+    <!-- a photograph of the real sample or bench replaces the simulated signal column on a few cards of the finale -->
+    <figure id="fu-photo"><img id="fu-photo-img" alt=""><figcaption id="fu-photo-cap"></figcaption></figure>
+
+    <!-- the sound of the sample: the oscilloscope capture, seen and heard -->
+    <section id="measured" class="view-pulse">
+      <div id="meas-left">
+        <h2 data-copy="measTitle"></h2>
+        <p id="meas-source" data-copy="measSource"></p>
+        <div id="meas-views">
+          <button type="button" data-view="pulse" data-copy="measViewPulse"></button>
+          <button type="button" data-view="pair" data-copy="measViewPair"></button>
+        </div>
+        <div id="meas-modes">
+          <button type="button" id="meas-model"><i data-copy="measModelName"></i><small data-copy="measModelSub"></small></button>
+          <button type="button" data-mode="pair"><i data-copy="measModePair"></i><small data-copy="measModePairSub"></small></button>
+          <button type="button" data-mode="slow"><i data-copy="measModeSlow"></i><small data-copy="measModeSlowSub"></small></button>
+          <button type="button" data-mode="resid"><i data-copy="measModeResid"></i><small data-copy="measModeResidSub"></small></button>
+          <button type="button" data-mode="rest"><i data-copy="measModeRest"></i><small data-copy="measModeRestSub"></small></button>
+        </div>
+        <p id="meas-gap-label" data-copy="measGapLabel"></p>
+        <div id="meas-gaps"></div>
+        <button type="button" id="meas-auto" class="ghost"></button>
+        <div id="meas-ctl">
+          <button type="button" id="meas-stop" class="ghost" data-copy="measStop"></button>
+        </div>
+        <p id="meas-hint"></p>
+        <p id="meas-note" data-copy="measNote"></p>
+        <p id="meas-lab" data-copy="labLink"></p>
+      </div>
+      <div id="meas-right">
+        <canvas id="cv-meas"></canvas>
+        <div id="meas-facts">
+          <div><b id="mf1n"></b><span id="mf1"></span></div>
+          <div><b id="mf2n"></b><span id="mf2"></span></div>
+          <div><b id="mf3n"></b><span id="mf3"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 200 answers: every pulse of the capture, stacked like the plot of a pulsar -->
+    <section id="answers">
+      <div id="ans-head"><h2 id="ans-title"></h2><p id="ans-sub"></p></div>
+      <p id="ans-ref"></p>
+      <div id="ans-bar">
+        <button type="button" id="ans-set"></button>
+        <button type="button" id="ans-fall"></button>
+        <button type="button" id="ans-rise"></button>
+        <button type="button" id="ans-mag"></button>
+        <button type="button" id="ans-env"></button>
+        <button type="button" id="ans-pal"></button>
+        <button type="button" id="ans-by"></button>
+        <button type="button" id="ans-play"></button>
+        <button type="button" id="ans-story"></button>
+      </div>
+      <canvas id="cv-ans"></canvas>
+      <div id="ans-story-card" role="dialog">
+        <div>
+          <h3 data-copy="ansStoryTitle"></h3>
+          <p data-copy="ansStory1"></p>
+          <p data-copy="ansStory2"></p>
+          <p data-copy="ansStory3"></p>
+          <button type="button" id="ans-story-close" class="solid" data-copy="aboutClose"></button>
+        </div>
+      </div>
+      <div id="ans-foot"><p id="ans-read"></p><p id="ans-note"></p></div>
+    </section>
+
+    <div id="about" role="dialog" aria-modal="true">
+      <div id="about-card">
+        <h2 data-copy="aboutTitle"></h2>
+        <p data-copy="aboutSim"></p>
+        <p data-copy="aboutSample"></p>
+        <p data-copy="aboutChoice"></p>
+        <p data-copy="aboutHow"></p>
+        <p id="about-lab" data-copy="labLink"></p>
+        <img id="about-photo" src="img/lab-bench.jpg" alt="">
+        <img id="about-qr" src="img/qr-lab.svg" alt="git.tami.sh/yair/ws2">
+        <button type="button" id="btn-about-close" class="solid" data-copy="aboutClose"></button>
+      </div>
+    </div>
+
+    <footer id="caption">
+      <span id="step"></span>
+      <span id="prov"></span>
+    </footer>
+    <canvas id="grain" width="256" height="256"></canvas>
+  </div>
+  <script type="module" src="js/expo/main.js"></script>
+</body>
+</html>

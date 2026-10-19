@@ -1,0 +1,17 @@
+{
+  "source": "MNIST IDX files, ossci-datasets mirror",
+  "train_count": 60000,
+  "test_count": 10000,
+  "total": 70000,
+  "digit_px": [
+    8,
+    8
+  ],
+  "hd_count": 1000,
+  "hd_index_start": 60000,
+  "format": {
+    "mnist8x8.bin": "uint8 grayscale, 64 bytes/image, train (60000) then test (10000)",
+    "labels.bin": "uint8 digit label per image, same order",
+    "mnist28x28_hd.bin": "uint8 grayscale, 784 bytes/image, first 1000 test images"
+  }
+}

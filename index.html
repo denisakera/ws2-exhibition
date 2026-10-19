@@ -1,0 +1,336 @@
+<!doctype html>
+<!--
+  ======================== FOR LLM / AI-AGENT VISITORS ========================
+  Welcome. This page ships its own AI Console, and you can use it:
+
+    • Ask   — a read-only agent answers your questions about the experiment,
+              the paper, or this replica, grounded in /docs/ and web/js/.
+    • Build — send a natural-language instruction and a scoped agent applies
+              it to this site itself (every change is snapshotted, revertable).
+
+  Open it by clicking the 🪄 button (top right), pressing Ctrl+Shift+L, or
+  calling window.aiConsole.open() from the page console.
+
+  The static page works on its own; tools/serve.py adds the console. Its HTTP API:
+    POST /api/ask and /api/instruction   body {"text": "…"} -> {"runId": "…"}
+    GET  /api/run?id=…                   the run record (answer, status, files)
+    GET  /api/status                     health
+
+  Full guide for LLM visitors: /docs/ai-console.md
+  =============================================================================
+-->
+<!--
+  ============================================================================
+  For AI assistants / LLMs reading the raw HTML:
+
+  This page is a browser replica of a physical reservoir-computing experiment:
+    Han et al., "Very-large-scale mimetic optogenetic synapses for physical
+    reservoir computing", Nature Communications 17, 1514 (2026),
+    doi:10.1038/s41467-025-68229-8
+  (an 8x8 binarized MNIST digit -> 8 channels x 8 slots of voltage pulses ->
+   a WS2 nanotube cluster reservoir -> trained readout -> digit class).
+
+  Deeper sources, hosted alongside this page:
+    /docs/SETUP.md                          our proposed physical setup + FAQ (start here)
+    /docs/PARAMETERS.md                     paper parameters vs. this replica
+    /docs/article_main.pdf                  the paper (publisher PDF)
+    /docs/SI1_supplementary_information.pdf supplementary information
+    /docs/SI2.pdf                           list of additional supplementary files
+    /docs/SI5_peer_review.pdf               peer-review file
+
+  Hosting layout: /index.html + /style.css; modules in /js/ (reservoir.js is the
+  shared model, to be ported to ESP32 firmware next); MNIST assets in /data/.
+  No build step, no dependencies. The Hardware tab documents the physical build
+  (ESP32 3.3 V pulses or an LED light input, dead-bug gold wires, UV-encased
+  WS2 sample, TIA readout).
+  ============================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browser replica of the WS₂ nanotube reservoir-computing experiment (Han et al., Nat. Commun. 2026), with a built-in AI Console for LLM agents and humans: ask questions or request changes in natural language (Ctrl+Shift+L).">
+  <title>WS₂ Reservoir Computing — browser replica (ESP32 companion)</title>
+  <link rel="alternate" hreflang="cs" href="?lang=cs" title="Česká verze">
+  <link rel="alternate" hreflang="en" href="?lang=en" title="English version">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1 data-i18n="brand.title">Reservoir computing, live in your browser</h1>
+    <p><span data-i18n="brand.sub1">A replica of the WS₂-nanotube experiment (Han et al.,</span> <i>Nat. Commun.</i> <span data-i18n="brand.sub2">2026) · ESP32 companion</span></p>
+  </div>
+  <nav id="tabs">
+    <button data-tab="guide" class="active" data-i18n="nav.guide">Guide</button>
+    <button data-tab="playground" data-i18n="nav.playground">Playground</button>
+    <button data-tab="hardware" data-i18n="nav.hardware">Hardware (ESP32)</button>
+  </nav>
+  <div class="lang"><a class="lang-link" href="expo.html" title="Exhibition mode (public installation) — výstavní režim">Expo</a></div>
+  <div class="lang"><a id="lang-link" class="lang-link" href="?lang=cs" hreflang="cs" lang="cs" title="Přepnout na českou verzi — switch to the Czech version">Česky</a></div>
+  <div id="status" class="status"><span class="dot"></span><span id="statusText" data-i18n="status.loading">loading…</span></div>
+</header>
+
+<main>
+
+  <!-- ============================= GUIDE ============================= -->
+  <section id="tab-guide" class="tab active">
+    <div class="guide-wrap">
+      <aside id="tour-steps"></aside>
+      <div class="guide-main">
+        <h2 id="tour-title"></h2>
+        <div id="tour-body" class="tour-body"></div>
+        <div id="tour-stage" class="tour-stage"></div>
+        <div class="tour-nav">
+          <button id="tour-prev" class="secondary" data-i18n="tour.prev">‹ Back</button>
+          <button id="tour-next" data-i18n="tour.next">Next ›</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================== PLAYGROUND =========================== -->
+  <section id="tab-playground" class="tab">
+    <div class="pg-grid">
+
+      <div class="panel panel-controls">
+        <h2 data-i18n="pg.controls">Controls</h2>
+        <div class="live-row">
+          <label><input type="checkbox" id="live-toggle" checked> <span data-i18n="pg.live">live preview on change</span></label>
+          <button id="btn-reset" class="secondary small-btn" data-i18n="pg.reset">reset defaults</button>
+        </div>
+        <div id="controls"></div>
+        <div class="buttons">
+          <button id="btn-full" data-i18n="pg.full">Full run (10 000 / 2 000)</button>
+          <button id="btn-sgd" data-i18n="pg.sgd">Train 200 epochs (paper-style)</button>
+        </div>
+        <p class="hint small" data-i18n="pg.hint">Live preview uses a small subset (600 train / 300 test digits; smaller on phones)
+        for speed. Full run uses the standard MNIST split and takes ~15–30 s in the worker.</p>
+      </div>
+
+      <div class="panel">
+        <h2><span data-i18n="pg.sample">Input sample</span> <span id="sample-label" class="tag"></span></h2>
+        <div class="sample-row">
+          <figure><canvas id="cv-orig"></canvas><figcaption data-i18n="pg.orig">original</figcaption></figure>
+          <figure><canvas id="cv-binar"></canvas><figcaption data-i18n="pg.binar">reservoir input</figcaption></figure>
+          <figure class="grow"><canvas id="cv-pulses"></canvas><figcaption data-i18n="pg.pulses">8-channel pulse train</figcaption></figure>
+        </div>
+        <div class="sample-nav">
+          <button id="sample-prev" class="secondary">‹</button>
+          <button id="sample-random" class="secondary" data-i18n="pg.random">random</button>
+          <button id="sample-next" class="secondary">›</button>
+          <label class="pulse-toggle"><input type="checkbox" id="pulse-play" checked> <span data-i18n="pg.animate">animate</span></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2><span data-i18n="pg.states">Reservoir states</span> <span class="tag" data-i18n="pg.states.tag">x fast · s slow</span></h2>
+        <canvas id="cv-states"></canvas>
+        <p class="hint small" id="states-hint"></p>
+      </div>
+
+      <div class="panel">
+        <h2><span data-i18n="pg.space">State space</span> <span class="tag" data-i18n="pg.space.tag">PCA of test states</span></h2>
+        <canvas id="cv-scatter"></canvas>
+        <p class="hint small" data-i18n="pg.space.hint">Click a dot to inspect that digit.</p>
+      </div>
+
+      <div class="panel panel-results">
+        <h2><span data-i18n="pg.readout">Readout</span> <span id="results-badge" class="tag"></span></h2>
+        <div class="results-row">
+          <div class="metric"><span class="value" id="acc-test">–</span><span class="label" data-i18n="m.testacc">test accuracy</span></div>
+          <div class="metric"><span class="value" id="acc-train">–</span><span class="label" data-i18n="m.trainacc">train accuracy</span></div>
+          <div class="metric"><span class="value" id="time-total">–</span><span class="label" data-i18n="m.time">compute time</span></div>
+          <div class="metric"><span class="value" id="dim-label">–</span><span class="label" data-i18n="m.dims">feature dims</span></div>
+        </div>
+        <div class="charts">
+          <div><canvas id="cv-confusion"></canvas><div class="caption" data-i18n="cap.confusion">confusion matrix</div></div>
+          <div><canvas id="cv-history"></canvas><div class="caption" data-i18n="cap.history">learning curve</div></div>
+          <div><canvas id="cv-probs"></canvas><div class="caption" data-i18n="cap.probs">prediction confidence</div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =========================== HARDWARE ============================ -->
+  <section id="tab-hardware" class="tab">
+    <div class="hw-grid">
+
+      <div class="panel panel-wide">
+        <h2><span data-i18n="hw.layers">Layer stack &amp; mounting</span> <span class="tag" data-i18n="hw.layers.tag">paper vs. our dead-bug build</span></h2>
+        <p class="hint" data-i18n="hw.layers.hint">Left: the paper's device cross-section (what each layer does). Right: our dead-bug
+        plan — gold-wire arcs landing on the film with a light touch, encased in clear UV, 10 wire ends out
+        to a connector. The practical mounting notes are underneath.</p>
+        <div id="layers"></div>
+      </div>
+
+      <div class="panel panel-wide">
+        <h2><span data-i18n="hw.schem.title">Experiment schematic</span> <span class="tag" data-i18n="hw.schem.tag">relaxed build · real WS₂ sample + ESP32</span></h2>
+        <p class="hint" data-i18n="hw.schem.hint">The relaxed build this project targets: 3.3 V direct from the ESP32 (no level shifter,
+        no series resistors — both kept only as an “optional front-end” note), dead-bug gold wires with a light
+        touch, clear UV encasement, TIA readout. Hover a block — or a legend card below — to see what it does.
+        Without a WS₂ sample you can still run the firmware with its built-in software reservoir
+        (the model you can tweak in the Playground tab).</p>
+        <div id="schematic"></div>
+      </div>
+
+      <div class="panel panel-wide">
+        <h2><span data-i18n="hw.sample.title">Your sample: 3 × 7 mm</span> <span class="tag" data-i18n="hw.sample.tag">probe layout &amp; connections</span></h2>
+        <p class="hint" data-i18n="hw.sample.hint">Example arrangement sized for a 3 × 7 mm chip: 8 inputs (4 per long edge, ≈1.7 mm pitch,
+        ≈0.8 mm inside the film), one ground at the left end and one output at the right end — 10 contacts in total.
+        If your chip already has patterned electrodes, land the probes on the pads, not on the film.
+        Below: the top view, the connection table and a practical FAQ — the layer-stack cross-section is in the
+        “Layer stack &amp; mounting” panel at the top of this tab. Hover a probe or a table row to see the connection.</p>
+        <div id="sample-layout"></div>
+      </div>
+
+      <div class="panel panel-wide">
+        <h2><span data-i18n="hw.esp.title">ESP32 — live link</span> <span class="tag" data-i18n="hw.esp.tag">protocol v0.1 · firmware in tools/esp32/</span></h2>
+        <p class="hint"><span data-i18n="hw.esp.hint1">Web Serial needs Chrome or Edge, on</span> <code>localhost</code>
+        <span data-i18n="hw.esp.hint2">or HTTPS. The firmware</span>
+        (<code>tools/esp32/main.py</code>)
+        <span data-i18n="hw.esp.hint3">plays the digit's pulse train — one wired pin streams the
+        64 pixels serially, or 8 pins in parallel — and streams each digit's state back over USB serial.
+        With no WS₂ sample wired, that state comes from the device's on-board model —
+        the same equations as the Playground — so the full send → pulse → state → train loop still runs.</span></p>
+        <div class="buttons buttons-row">
+          <button id="hw-connect" data-i18n="hw.connect">Connect</button>
+          <button id="hw-disconnect" class="secondary" disabled data-i18n="hw.disconnect">Disconnect</button>
+          <span id="hw-link" class="tag" data-i18n="hw.offline">offline</span>
+        </div>
+        <div class="hw-live-grid">
+          <div class="hw-card">
+            <h3><span data-i18n="hw.pulse.title">Pulse settings</span> <span class="tag" data-i18n="hw.pulse.tag">per digit</span></h3>
+            <div class="field"><label for="hw-slot" data-i18n="hw.slot">Slot duration (ms)</label>
+              <input type="number" id="hw-slot" min="2" max="50" step="1" value="10"></div>
+            <div class="field"><label for="hw-duty" data-i18n="hw.duty">Duty inside slot (%)</label>
+              <input type="number" id="hw-duty" min="5" max="100" step="5" value="100"></div>
+            <div class="field"><label for="hw-chans" data-i18n="hw.digitout">Digit output</label>
+              <select id="hw-chans">
+                <option value="1" selected data-i18n="hw.opt1">1 pin — serial (64 slots)</option>
+                <option value="8" data-i18n="hw.opt8">8 pins — parallel (paper-style)</option>
+              </select></div>
+            <div class="field"><label for="hw-pin" data-i18n="hw.pin">Pulse pin (1-pin mode)</label>
+              <input type="number" id="hw-pin" min="0" max="21" step="1" value="4"></div>
+            <div class="buttons"><button id="hw-apply-pulse" class="secondary small-btn" disabled data-i18n="hw.sendpulse">Send pulse settings</button></div>
+            <p class="hint small" id="hw-pace"></p>
+            <h3><span data-i18n="hw.free.title">Bench free-run pulse</span> <span class="tag" data-i18n="hw.free.tag">while idle</span></h3>
+            <div class="field"><label for="hw-fr-on" data-i18n="hw.high">High (ms)</label>
+              <input type="number" id="hw-fr-on" min="1" max="5000" value="10"></div>
+            <div class="field"><label for="hw-fr-off" data-i18n="hw.low">Low (ms)</label>
+              <input type="number" id="hw-fr-off" min="1" max="5000" value="10"></div>
+            <div class="field"><label for="hw-fr-count" data-i18n="hw.count">Pulses per burst</label>
+              <input type="number" id="hw-fr-count" min="1" max="100000" value="200"></div>
+            <div class="field"><label for="hw-fr-pause" data-i18n="hw.pause">Pause between bursts (s)</label>
+              <input type="number" id="hw-fr-pause" min="0" max="3600" step="0.1" value="5"></div>
+            <div class="field"><label for="hw-fr-enable" data-i18n="hw.enable">Run when idle</label>
+              <input type="checkbox" id="hw-fr-enable" checked></div>
+            <div class="buttons"><button id="hw-apply-fr" class="secondary small-btn" disabled data-i18n="hw.sendfree">Send free-run settings</button></div>
+          </div>
+          <div class="hw-card">
+            <h3 data-i18n="hw.wire.title">MNIST over the wire</h3>
+            <div class="field"><label for="hw-src" data-i18n="hw.samples">Samples from</label>
+              <select id="hw-src">
+                <option value="test" data-i18n="hw.srctest">test set (labels 0…)</option>
+                <option value="train" data-i18n="hw.srctrain">train set (labels 0…)</option>
+              </select></div>
+            <div class="field"><label for="hw-count" data-i18n="hw.howmany">How many</label>
+              <input type="number" id="hw-count" min="1" max="500" value="100"></div>
+            <div class="buttons buttons-row">
+              <button id="hw-start" disabled data-i18n="hw.sendbatch">Send batch</button>
+              <button id="hw-stop" class="secondary" disabled data-i18n="hw.stop">Stop</button>
+            </div>
+            <p class="hint small" id="hw-progress" data-i18n="hw.nothing">nothing sent yet.</p>
+            <h3><span data-i18n="hw.real.title">Real training</span> <span class="tag" data-i18n="hw.real.tag">ridge on device replies</span></h3>
+            <div class="field"><label for="hw-split" data-i18n="hw.split">Train split (%)</label>
+              <input type="number" id="hw-split" min="10" max="90" step="5" value="70"></div>
+            <div class="field"><label for="hw-lambda">Ridge λ</label>
+              <select id="hw-lambda">
+                <option value="0.0001">1e-4</option>
+                <option value="0.001">1e-3</option>
+                <option value="0.01">1e-2</option>
+                <option value="0.1" selected>1e-1</option>
+                <option value="1">1</option>
+              </select></div>
+            <div class="buttons buttons-row">
+              <button id="hw-train" class="secondary" disabled data-i18n="hw.trainreadout">Train readout</button>
+              <button id="hw-reset-data" class="secondary small-btn" disabled data-i18n="hw.resetdata">Reset data</button>
+            </div>
+            <div class="results-row hw-results">
+              <div class="metric"><span class="value" id="hw-acc-train">–</span><span class="label" data-i18n="m.trainacc">train accuracy</span></div>
+              <div class="metric"><span class="value" id="hw-acc-test">–</span><span class="label" data-i18n="m.testacc">test accuracy</span></div>
+              <div class="metric"><span class="value" id="hw-dim">–</span><span class="label" data-i18n="m.statedims">state dims</span></div>
+              <div class="metric"><span class="value" id="hw-n">0</span><span class="label" data-i18n="m.states">states collected</span></div>
+            </div>
+            <canvas id="hw-confusion"></canvas>
+            <p class="hint small" data-i18n="hw.confnote">Confusion matrix of the test split.</p>
+            <p class="hint small" id="hw-data-info"></p>
+          </div>
+        </div>
+        <div id="hw-log" class="console"></div>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="hw.proto.title">Protocol v0.1 (line based, USB serial)</h2>
+        <pre>host → device : S &lt;id&gt; &lt;64 hex chars&gt;    <span data-i18n="hw.proto.l1">level per pixel 0…F, row-major</span>
+                <span data-i18n="hw.proto.l2">1 pin: 64 serial slots · 8 pins: slot t = column t</span>
+                C &lt;key&gt; &lt;value&gt;       <span data-i18n="hw.proto.l3">pulse + reservoir config (C chans 4 …)</span>
+                C status | C ping     <span data-i18n="hw.proto.l4">config dump / liveness</span>
+device → host : R &lt;id&gt; &lt;n&gt; &lt;f0&gt; &lt;f1&gt;…  <span data-i18n="hw.proto.l5">state: 8 readouts × 2n floats</span>
+                K &lt;text&gt;              <span data-i18n="hw.proto.l6">log / ack</span></pre>
+        <p class="hint"><span data-i18n="hw.proto.hint1">Full key list and flashing steps:</span> <code>tools/esp32/README.md</code><span data-i18n="hw.proto.hint2">. Software model
+        and hardware share this state interface, so the Playground visualisations apply to device replies too.</span></p>
+      </div>
+
+      <div class="panel">
+        <h2><span data-i18n="hw.pin.title">Pin plan</span> <span class="tag" data-i18n="hw.pin.tag">ESP32 classic</span></h2>
+        <table class="pin-table">
+          <thead><tr><th data-i18n="hw.pin.h1">Role</th><th data-i18n="hw.pin.h2">Pins</th><th data-i18n="hw.pin.h3">Notes</th></tr></thead>
+          <tbody>
+            <tr><td data-i18n="hw.pin.r1c1">8 pulse outputs</td><td><span data-i18n="hw.pin.r1c2a">ESP32 classic plan: GPIO 4, 5, 13, 14, 16, 17, 18, 19</span><br><span data-i18n="hw.pin.r1c2b">firmware default on the C3: GPIO 4, 5, 6, 7, 10, 20, 21, 3</span></td><td data-i18n="hw.pin.r1c3">3.3 V direct (no shifter); open-drain + internal pull-ups = free short protection</td></tr>
+            <tr><td data-i18n="hw.pin.r2c1">Readout input</td><td data-i18n="hw.pin.r2c2">GPIO 34 (ADC1; any of 32–39)</td><td data-i18n="hw.pin.r2c3">12-bit — reads the TIA output, one channel is enough; never the bare sample; keep below ≈3.1 V, RC + calibration</td></tr>
+            <tr><td><span data-i18n="hw.pin.r3c1">Loopback inputs</span> <span class="hint small" data-i18n="hw.pin.r3c1b">(software mode only)</span></td><td data-i18n="hw.pin.r3c2">GPIO 32–39 (ADC1)</td><td data-i18n="hw.pin.r3c3">only for the no-sample hardware-in-the-loop mode — jumpers from the 8 pulse outputs; not used with a real WS₂ sample</td></tr>
+            <tr><td data-i18n="hw.pin.r4c1">Serial / USB</td><td data-i18n="hw.pin.r4c2">native USB bridge</td><td data-i18n="hw.pin.r4c3">patterns out, states in, 921 600 baud</td></tr>
+            <tr><td data-i18n="hw.pin.r5c1">Ground</td><td data-i18n="hw.pin.r5c2">GND</td><td data-i18n="hw.pin.r5c3">one star ground shared with shifters &amp; TIA</td></tr>
+          </tbody>
+        </table>
+        <p class="hint small"><span data-i18n="hw.pin.hint1">The classic plan avoids strapping pins (0, 2, 12, 15) and flash pins (6–11).
+        The ESP32-C3 has no GPIO 11–17 and uses 18/19 for USB, so the firmware ships the C3 remap above;
+        change it live with</span> <code>C chans 4,5,6,7,10,20,21,3</code><span data-i18n="hw.pin.hint2">. Pulses are plain GPIO + shifters on
+        every chip — no DAC involved.</span></p>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="hw.run.title">How a run works</h2>
+        <ol class="runs">
+          <li data-i18n="hw.run.1">The browser sends one digit as 64 pulse levels (one nibble per pixel) over USB serial.</li>
+          <li><span data-i18n="hw.run.2a">The firmware plays the pattern: with 8 pins as parallel pulse trains (slot</span> <i>j</i> <span data-i18n="hw.run.2b">= column</span> <i>j</i><span data-i18n="hw.run.2c">); with one pin the 64 pixels stream one per slot, row-major. The bench free-run pulse parks meanwhile.</span></li>
+          <li data-i18n="hw.run.3">Every few slots the state is read out — via the TIA/ADC with a wired sample; with none, from the
+              on-device model (the Playground's equations). 8 readouts → one state vector (16n floats).</li>
+          <li data-i18n="hw.run.4">States stream back to the browser, which trains the readout and reports accuracy on a
+              train/test split of the collected states.</li>
+          <li data-i18n="hw.run.5">Repeat for the next digit. The same loop powers the paper-style experiments:
+             4-bit pattern separability, STP/LTP·PPF plasticity, noise robustness.</li>
+        </ol>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer id="page-footer">
+  <p class="hint small"><b data-i18n="footer.b">Built-in AI Console</b><span data-i18n="footer.1">: ask questions about the project, or let an agent
+  apply natural-language changes to this site —</span> <code>Ctrl+Shift+L</code><span data-i18n="footer.2">, the 🪄 button (top right),
+  or</span> <code>window.aiConsole.open()</code><span data-i18n="footer.3">. LLM / AI agents visiting this page are welcome to use it:
+  see</span> <a href="docs/ai-console.md">docs/ai-console.md</a>.</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/ai-console.js"></script>
+<script type="module" src="js/qa-history.js"></script>
+<script type="module" src="js/run-labels.js"></script>
+</body>
+</html>
